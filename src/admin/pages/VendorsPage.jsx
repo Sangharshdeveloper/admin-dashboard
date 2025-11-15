@@ -1,10 +1,25 @@
+import StatCard from '../components/common/StatCard';
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Eye, Trash2, CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react';
 import Table from '../components/common/Table';
 import Modal from '../components/common/Modal';
 import apiService from '../services/api.service';
+import { enZA } from 'date-fns/locale';
+import { 
+   Users, TrendingUp,
+    Search, 
+    Eye, 
+    Trash2, 
+    CheckCircle, 
+    User, 
+    Phone, 
+    Mail, 
+    Loader2, 
+    ArrowUpRight, 
+    ArrowDownRight 
+} from 'lucide-react';
 
-// Utility Hook for Search Debouncing
+
+// Utility Hook for Search Debouncing (copied from VendorsPage)
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
   useEffect(() => {
@@ -19,79 +34,54 @@ const useDebounce = (value, delay) => {
 };
 
 
-// --- Vendor Details/Edit Modal Content Component ---
-const VendorDetailsModal = ({ vendor, onClose, refreshVendors }) => {
-  const [status, setStatus] = useState(vendor.verification_status);
+// --- User Details Modal Content Component ---
+const UserDetailsModal = ({ user, onClose, refreshUsers }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
 
+  // Example: Handle Status/Role Change (if implemented)
   const handleStatusChange = async (newStatus) => {
     setIsSubmitting(true);
     setMessage('');
-
+    
+    // NOTE: This PUT endpoint is assumed. If your API supports status change, use the correct endpoint.
     try {
-      // API call to update status (assuming an endpoint like /vendors/{id}/status)
-      const response = await apiService.put(`/admin/vendors/${vendor.id}/status`, { status: newStatus });
-      
-      // Check if update was successful
-      if(response.success || response.message) {
-        setMessage(`Successfully updated status to ${newStatus}.`);
-        setStatus(newStatus);
-        refreshVendors(); // Refresh the parent list
-        // Allow user to see the success message before closing
-        setTimeout(onClose, 1500); 
-      } else {
-         setMessage('Failed to update status. Server response was unexpected.');
-      }
-      
+      await apiService.put(`/admin/vendors/${user.user_id}/status`, { status: newStatus });
+      setMessage(`Successfully updated status to ${newStatus}.`);
+      refreshUsers();
+      setTimeout(onClose, 1500); 
     } catch (error) {
-      console.error('Error updating vendor status:', error);
+      console.error('Error updating user status:', error);
       setMessage(`Failed to update status: ${error.message || 'Network error'}.`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const StatusButton = ({ newStatus, icon: Icon, color, label }) => (
-    <button
-      onClick={() => handleStatusChange(newStatus)}
-      disabled={status === newStatus || isSubmitting}
-      className={`flex items-center px-4 py-2 text-sm font-semibold rounded-lg transition shadow-md 
-        ${color === 'green' ? 'bg-green-500 text-white hover:bg-green-600' : 
-          color === 'red' ? 'bg-red-500 text-white hover:bg-red-600' : ''
-        }
-        disabled:opacity-60 disabled:shadow-none
-      `}
-    >
-      <Icon className="w-4 h-4 mr-2" />
-      {isSubmitting && status !== newStatus ? 'Processing...' : label}
-    </button>
-  );
 
   const getStatusBadge = (currentStatus) => {
       let icon, colorClasses, label;
       switch (currentStatus) {
-          case 'approved':
-              icon = CheckCircle;
+          case 'active':
+              icon = ArrowUpRight;
               colorClasses = 'bg-green-100 text-green-700';
-              label = 'APPROVED';
+              label = 'Active';
               break;
-          case 'rejected':
-              icon = XCircle;
-              colorClasses = 'bg-red-100 text-red-700';
-              label = 'REJECTED';
-              break;
-          case 'pending':
-          default:
-              icon = Clock;
+          case 'inactive':
+              icon = ArrowDownRight;
               colorClasses = 'bg-yellow-100 text-yellow-700';
-              label = 'PENDING';
+              label = 'Inactive';
+              break;
+          default:
+              icon = null;
+              colorClasses = 'bg-gray-100 text-gray-700';
+              label = 'Unknown';
               break;
       }
       const IconComponent = icon;
       return (
           <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase ${colorClasses}`}>
-              <IconComponent className="w-3 h-3 mr-1" />
+              {IconComponent && <IconComponent className="w-3 h-3 mr-1" />}
               {label}
           </span>
       );
@@ -99,34 +89,60 @@ const VendorDetailsModal = ({ vendor, onClose, refreshVendors }) => {
 
   return (
     <div className="space-y-6">
-      <div className="p-4 bg-gray-50 rounded-lg border">
-        <h4 className="text-lg font-bold text-gray-800 mb-2">
-          Current Status: {getStatusBadge(status)}
+      
+      {/* Basic Info */}
+      <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+        <h4 className="text-xl font-bold text-indigo-800 flex items-center mb-2">
+            <User className="w-5 h-5 mr-2" />
+            {user.name}
         </h4>
-        <div className="flex gap-3">
-          <StatusButton newStatus="approved" icon={CheckCircle} color="green" label="Approve Vendor" />
-          <StatusButton newStatus="rejected" icon={XCircle} color="red" label="Reject Vendor" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-700">
+            <p className="flex items-center">
+                <Mail className="w-4 h-4 mr-2 text-indigo-500" />
+                <strong>Email:</strong> {user.email}
+            </p>
+            <p className="flex items-center">
+                <Phone className="w-4 h-4 mr-2 text-indigo-500" />
+                <strong>Phone:</strong> {user.phone_number}
+            </p>
+            <p><strong>User ID:</strong> <span className="font-mono text-xs text-gray-600">{user.user_id}</span></p>
+            <p><strong>Role:</strong> <span className="font-semibold capitalize">{user.role}</span></p>
+            <p><strong>Location:</strong> {user.city || 'N/A'}, {user.state || 'N/A'}</p>
+            <p><strong>Gender:</strong> {user.gender || 'N/A'}</p>
         </div>
-        {message && <p className={`text-sm mt-3 font-medium ${message.includes('Failed') ? 'text-red-500' : 'text-green-500'}`}>{message}</p>}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
-        <p><strong>Owner:</strong> {vendor.owner_name}</p>
-        <p><strong>Email:</strong> {vendor.email}</p>
-        <p><strong>Phone:</strong> {vendor.phone_number}</p>
-        <p><strong>Shop Name:</strong> <span className="font-semibold text-gray-900">{vendor.shop_name}</span></p>
-        <p className="col-span-full"><strong>Address:</strong> {vendor.shop_address}</p>
-        <p><strong>City/State:</strong> {vendor.city}, {vendor.state}</p>
-        <p><strong>Working Hours:</strong> {vendor.open_time} - {vendor.close_time}</p>
-        <p><strong>Seats/Workers:</strong> {vendor.no_of_seats} Seats / {vendor.no_of_workers} Workers</p>
+      {/* Status & Verification */}
+      <div className="p-4 bg-white border rounded-lg shadow-sm">
+        <h4 className="text-lg font-bold text-gray-800 mb-3">Account Status & Dates</h4>
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <p><strong>Account Status:</strong> {getStatusBadge(user.status)}</p>
+          <p>
+            <strong>Is Verified (Admin):</strong> 
+            <span className={`font-semibold ml-2 ${user.is_verified ? 'text-green-600' : 'text-red-600'}`}>
+                {user.is_verified ? <CheckCircle className="w-4 h-4 inline mr-1" /> : ''}{user.is_verified ? 'Yes' : 'No'}
+            </span>
+          </p>
+          <p className="col-span-2">
+            <strong>Last Login:</strong> 
+            <span className="ml-2 font-medium">{user.last_login_at ? new Date(user.last_login_at).toLocaleString() : 'Never'}</span>
+          </p>
+          <p className="col-span-2">
+            <strong>Created On:</strong> 
+            <span className="ml-2 font-medium">{new Date(user.created_at).toLocaleDateString()}</span>
+          </p>
+        </div>
       </div>
+      
+      {/* Message Area and Close Button */}
+      {message && <p className={`text-sm font-medium mt-3 p-3 rounded-lg ${message.includes('Failed') ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{message}</p>}
 
       <div className="flex justify-end pt-4 border-t">
         <button
           onClick={onClose}
           className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition shadow-sm"
         >
-          Done
+          Close
         </button>
       </div>
     </div>
@@ -134,23 +150,22 @@ const VendorDetailsModal = ({ vendor, onClose, refreshVendors }) => {
 };
 
 
-// --- Main Vendors Page Component ---
+// --- Main Users Page Component ---
 
 const VendorsPage = ({ token }) => {
-  const [vendors, setVendors] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     status: '',
-    city: '',
     search: '',
-    page: 1
+    page: 1 // Assuming pagination support
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedVendor, setSelectedVendor] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [vendorToDelete, setVendorToDelete] = useState(null);
+  const [userToDelete, setUserToDelete] = useState(null);
 
-  // Set the token on the class instance when the prop changes
+  // Set the token on the class instance
   useEffect(() => {
       if (token) {
           apiService.setAuthToken(token);
@@ -160,80 +175,67 @@ const VendorsPage = ({ token }) => {
   // Apply debounce to the search input value
   const debouncedSearch = useDebounce(filters.search, 400);
 
-  // Function to fetch vendors data
-  const fetchVendors = useCallback(async () => {
+  // Function to fetch users data
+  const fetchUsers = useCallback(async () => {
     if (!token) return; 
     setLoading(true);
 
     try {
-      // The API Service class handles the token internally now.
-      const response = await apiService.get(`/admin/vendors/list`, {
+      // Endpoint /admin/users uses 'data' array in the sample response
+      const response = await apiService.get(`/admin/vendors`, {
         status: filters.status,
-        city: filters.city,
         search: debouncedSearch,
         page: filters.page
       });
       
-      // Map data to ensure consistency 
-      const vendorList = (response.data?.vendors || response.vendors || []).map(v => ({
-        // Use 'user_id' from the registration response as the primary ID
-        id: v.user_id || v.id, 
-        owner_name: v.name || v.owner_name || 'N/A',
-        // Ensure shop_address, city, state are present, mocking if needed for the UI fields
-        shop_address: v.shop_address || 'N/A',
-        city: v.city || 'N/A',
-        state: v.state || 'N/A',
-        open_time: v.open_time || 'N/A',
-        close_time: v.close_time || 'N/A',
-        no_of_seats: v.no_of_seats || 0,
-        no_of_workers: v.no_of_workers || 0,
-        ...v
+      const userList = (response.data || response.users || []).map(u => ({
+        id: u.user_id, // Use user_id as the primary ID
+        ...u
       }));
 
-      setVendors(vendorList);
+      setUsers(userList);
 
     } catch (err) {
-      console.error('Failed to fetch vendors:', err);
-      // Clear data on error
-      setVendors([]); 
+      console.error('Failed to fetch users:', err);
+      setUsers([]); 
     } finally {
       setLoading(false);
     }
-  }, [token, filters.status, filters.city, filters.page, debouncedSearch]);
+  }, [token, filters.status, filters.page, debouncedSearch]);
 
   // Effect to trigger fetch when filters or debounced search change
   useEffect(() => {
-    fetchVendors();
-  }, [fetchVendors]);
+    fetchUsers();
+  }, [fetchUsers]);
 
   // --- Action Handlers ---
 
-  const handleViewDetails = (vendor) => {
-    setSelectedVendor(vendor);
+  const handleViewDetails = (user) => {
+    setSelectedUser(user);
     setIsModalOpen(true);
   };
 
-  const openDeleteModal = (vendor) => {
-    setVendorToDelete(vendor);
+  const openDeleteModal = (user) => {
+    setUserToDelete(user);
     setIsDeleteModalOpen(true);
   }
 
-  const handleDeleteVendor = async () => {
-    if (!vendorToDelete) return;
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
 
     try {
       setLoading(true);
       setIsDeleteModalOpen(false);
       // API call to delete (assuming endpoint /admin/vendors/{id})
-      await apiService.delete(`/admin/vendors/${vendorToDelete.id}`);
-      setVendorToDelete(null);
-      await fetchVendors(); // Refresh the list after successful deletion
+      await apiService.delete(`/admin/vendors/${userToDelete.id}`);
+      setUserToDelete(null);
+      await fetchUsers(); // Refresh the list after successful deletion
     } catch (error) {
-      console.error('Failed to delete vendor:', error);
-      // Reopen a modal for error feedback instead of alert
-      setSelectedVendor({ 
-          shop_name: vendorToDelete.shop_name, 
-          error: `Failed to delete vendor: ${error.message || 'Check console for details.'}`
+      console.error('Failed to delete user:', error);
+      // Display error feedback
+      setSelectedUser({ 
+          name: userToDelete.name, 
+          error: `Failed to delete user: ${error.message || 'Check console for details.'}`
       });
       setIsModalOpen(true);
     } finally {
@@ -244,19 +246,20 @@ const VendorsPage = ({ token }) => {
 
   // --- Table Columns Definition ---
   const columns = [
-    { header: 'Shop Name', field: 'shop_name' },
-    { header: 'Owner', field: 'owner_name' },
-    { header: 'City', field: 'city' },
+    { header: 'ID', field: 'user_id' },
+    { header: 'Name', field: 'name' },
+    { header: 'Email', field: 'email' },
     { header: 'Phone', field: 'phone_number' },
+    { header: 'Role', field: 'role' },
+    { header: 'City', field: 'city' },
     {
       header: 'Status',
       render: (row) => (
         <span className={`px-3 py-1 rounded-full text-xs font-medium uppercase ${
-          row.verification_status === 'approved' ? 'bg-green-100 text-green-800' :
-          row.verification_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-          'bg-red-100 text-red-800'
+          row.status === 'active' ? 'bg-green-100 text-green-800' :
+          'bg-yellow-100 text-yellow-800'
         }`}>
-          {row.verification_status}
+          {row.status}
         </span>
       )
     },
@@ -267,14 +270,14 @@ const VendorsPage = ({ token }) => {
           <button
             onClick={() => handleViewDetails(row)}
             className="p-1 text-indigo-600 hover:bg-indigo-100 rounded-full transition"
-            title="View Details / Manage Status"
+            title="View Details"
           >
             <Eye className="w-5 h-5" />
           </button>
           <button
             onClick={() => openDeleteModal(row)}
             className="p-1 text-red-600 hover:bg-red-100 rounded-full transition"
-            title="Delete Vendor"
+            title="Delete User"
           >
             <Trash2 className="w-5 h-5" />
           </button>
@@ -300,7 +303,7 @@ const VendorsPage = ({ token }) => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Search by shop or owner name..."
+              placeholder="Search by name, email, or phone..."
               className="w-full pl-10 pr-4 py-2 border-2 border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-600 transition shadow-inner"
               value={filters.search}
               onChange={(e) => setFilters({...filters, search: e.target.value})}
@@ -308,56 +311,43 @@ const VendorsPage = ({ token }) => {
           </div>
 
           <div className="flex gap-3 w-full sm:w-auto">
-            {/* Status Filter */}
+            {/* Status Filter (Example) */}
             <select
               className="flex-grow px-4 py-2 border-2 border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-600 bg-white shadow-sm transition"
               value={filters.status}
               onChange={(e) => setFilters({...filters, status: e.target.value, page: 1})}
             >
               <option value="">All Statuses</option>
-              <option value="approved">Approved</option>
-              <option value="pending">Pending</option>
-              <option value="rejected">Rejected</option>
-            </select>
-
-            {/* City Filter */}
-            <select
-              className="flex-grow px-4 py-2 border-2 border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-600 bg-white shadow-sm transition"
-              value={filters.city}
-              onChange={(e) => setFilters({...filters, city: e.target.value, page: 1})}
-            >
-              <option value="">All Cities</option>
-              <option value="pune">Pune</option>
-              <option value="mumbai">Mumbai</option>
-              <option value="bangalore">Bangalore</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
             </select>
           </div>
         </div>
 
-        {/* Vendors Table */}
+        {/* Users Table */}
         <section className="min-h-[400px]">
-          <Table columns={columns} data={vendors} loading={loading} />
-          {/* TODO: Add pagination controls here if the API supports it */}
+          <Table columns={columns} data={users} loading={loading} />
+          {/* TODO: Add pagination controls here */}
         </section>
       </div>
 
-      {/* View/Edit/Approve Modal */}
-      {selectedVendor && (
+      {/* View/Edit Modal */}
+      {selectedUser && (
         <Modal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          title={`Manage Vendor: ${selectedVendor.shop_name}`}
+          title={`User Details: ${selectedUser.name}`}
         >
-          {selectedVendor.error ? (
+          {selectedUser.error ? (
               <div className="p-4 text-red-700 bg-red-50 rounded-lg">
-                  <h4 className="font-bold">Deletion Error</h4>
-                  <p>{selectedVendor.error}</p>
+                  <h4 className="font-bold">Error</h4>
+                  <p>{selectedUser.error}</p>
               </div>
           ) : (
-             <VendorDetailsModal
-              vendor={selectedVendor}
+             <UserDetailsModal
+              user={selectedUser}
               onClose={() => setIsModalOpen(false)}
-              refreshVendors={fetchVendors} 
+              refreshUsers={fetchUsers} 
             />
           )}
          
@@ -368,12 +358,12 @@ const VendorsPage = ({ token }) => {
       <Modal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
-        title={`Confirm Deletion`}
+        title={`Confirm User Deletion`}
       >
         <div className="p-4 space-y-4">
           <p className="text-gray-700">
-            Are you sure you want to <strong className="text-red-600">PERMANENTLY delete</strong> the vendor 
-            <span className="font-semibold"> "{vendorToDelete?.shop_name}"</span>? This action cannot be undone.
+            Are you sure you want to <strong className="text-red-600">PERMANENTLY delete</strong> the user 
+            <span className="font-semibold"> "{userToDelete?.name}"</span>? This action cannot be undone.
           </p>
           <div className="flex justify-end gap-3">
             <button
@@ -383,12 +373,12 @@ const VendorsPage = ({ token }) => {
               Cancel
             </button>
             <button
-              onClick={handleDeleteVendor}
+              onClick={handleDeleteUser}
               disabled={loading}
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50 flex items-center"
             >
               {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Delete Vendor
+              Delete User
             </button>
           </div>
         </div>

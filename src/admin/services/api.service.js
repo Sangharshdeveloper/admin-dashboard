@@ -1,4 +1,5 @@
-const API_BASE_URL = 'http://srv1118630.hstgr.cloud:3000/api';
+// const API_BASE_URL = 'http://srv1118630.hstgr.cloud:3000/api';
+const API_BASE_URL = 'http://10.218.184.71:3001/api';
 
 class ApiService {
   constructor() {
