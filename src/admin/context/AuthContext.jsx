@@ -39,25 +39,35 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // Login function
-  const login = async (email, password) => {
+  const login = async (phone_number, password) => {
     try {
-      const response = await apiService.post('/auth/admin/login', {
-        email,
+      const response = await apiService.post('/auth/login', {
+        phone_number,
         password,
-        user_type: 'admin'
       });
 
+      console.log('Login response:', response);
+
       if (response.success) {
-        const { admin, token: authToken } = response.data;
+        // FIXED: Handle the actual API response structure
+        // API returns: { success, message, data: { user_id, user_type, profile, token } }
+        const { user_id, user_type, profile, token: authToken } = response.data;
+        
+        // Create user object
+        const userData = {
+          user_id,
+          user_type,
+          ...profile
+        };
         
         // Store in state
-        setUser(admin);
+        setUser(userData);
         setToken(authToken);
         setIsAuthenticated(true);
 
         // Store in localStorage
         localStorage.setItem('admin_token', authToken);
-        localStorage.setItem('admin_user', JSON.stringify(admin));
+        localStorage.setItem('admin_user', JSON.stringify(userData));
 
         // Set token in API service
         apiService.setAuthToken(authToken);

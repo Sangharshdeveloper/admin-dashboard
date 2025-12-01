@@ -1,146 +1,233 @@
-import StatCard from '../components/common/StatCard';
 import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  Store, Search, Eye, CheckCircle, XCircle, Clock,User,
+  MapPin, Phone, Mail, Star, DollarSign, Calendar
+} from 'lucide-react';
 import Table from '../components/common/Table';
 import Modal from '../components/common/Modal';
 import apiService from '../services/api.service';
-import { enZA } from 'date-fns/locale';
-import { 
-   Users, TrendingUp,
-    Search, 
-    Eye, 
-    Trash2, 
-    CheckCircle, 
-    User, 
-    Phone, 
-    Mail, 
-    Loader2, 
-    ArrowUpRight, 
-    ArrowDownRight 
-} from 'lucide-react';
 
-
-// Utility Hook for Search Debouncing (copied from VendorsPage)
+// Utility hook for debouncing
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-    return () => {
-      clearTimeout(handler);
-    };
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
   }, [value, delay]);
   return debouncedValue;
 };
 
-
-// --- User Details Modal Content Component ---
-const UserDetailsModal = ({ user, onClose, refreshUsers }) => {
+// Vendor Details Modal Component
+const VendorDetailsModal = ({ vendor, onClose, onUpdate }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
+  const [comments, setComments] = useState('');
 
-  // Example: Handle Status/Role Change (if implemented)
-  const handleStatusChange = async (newStatus) => {
+  const handleVerification = async (status) => {
+    if (status === 'rejected' && !comments.trim()) {
+      setMessage('❌ Please provide rejection comments');
+      return;
+    }
+
     setIsSubmitting(true);
     setMessage('');
-    
-    // NOTE: This PUT endpoint is assumed. If your API supports status change, use the correct endpoint.
+
     try {
-      await apiService.put(`/admin/vendors/${user.user_id}/status`, { status: newStatus });
-      setMessage(`Successfully updated status to ${newStatus}.`);
-      refreshUsers();
-      setTimeout(onClose, 1500); 
+      await apiService.put(`/admin/vendors/${vendor.user_id}/verification`, {
+        verification_status: status,
+        admin_comments: comments
+      });
+      setMessage(`✅ Vendor ${status === 'approved' ? 'approved' : 'rejected'} successfully`);
+      onUpdate();
+      setTimeout(onClose, 1500);
     } catch (error) {
-      console.error('Error updating user status:', error);
-      setMessage(`Failed to update status: ${error.message || 'Network error'}.`);
+      setMessage(`❌ Failed: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-
-  const getStatusBadge = (currentStatus) => {
-      let icon, colorClasses, label;
-      switch (currentStatus) {
-          case 'active':
-              icon = ArrowUpRight;
-              colorClasses = 'bg-green-100 text-green-700';
-              label = 'Active';
-              break;
-          case 'inactive':
-              icon = ArrowDownRight;
-              colorClasses = 'bg-yellow-100 text-yellow-700';
-              label = 'Inactive';
-              break;
-          default:
-              icon = null;
-              colorClasses = 'bg-gray-100 text-gray-700';
-              label = 'Unknown';
-              break;
-      }
-      const IconComponent = icon;
-      return (
-          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase ${colorClasses}`}>
-              {IconComponent && <IconComponent className="w-3 h-3 mr-1" />}
-              {label}
-          </span>
-      );
+  const getVerificationBadge = (status) => {
+    const statusConfig = {
+      approved: { color: 'bg-green-100 text-green-800', label: 'Approved', icon: CheckCircle },
+      rejected: { color: 'bg-red-100 text-red-800', label: 'Rejected', icon: XCircle },
+      pending: { color: 'bg-yellow-100 text-yellow-800', label: 'Pending', icon: Clock }
+    };
+    
+    const config = statusConfig[status] || statusConfig.pending;
+    const Icon = config.icon;
+    
+    return (
+      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${config.color}`}>
+        <Icon className="w-3 h-3 mr-1" />
+        {config.label}
+      </span>
+    );
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-h-[80vh] overflow-y-auto">
       
-      {/* Basic Info */}
-      <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-        <h4 className="text-xl font-bold text-indigo-800 flex items-center mb-2">
-            <User className="w-5 h-5 mr-2" />
-            {user.name}
-        </h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-700">
-            <p className="flex items-center">
-                <Mail className="w-4 h-4 mr-2 text-indigo-500" />
-                <strong>Email:</strong> {user.email}
-            </p>
-            <p className="flex items-center">
-                <Phone className="w-4 h-4 mr-2 text-indigo-500" />
-                <strong>Phone:</strong> {user.phone_number}
-            </p>
-            <p><strong>User ID:</strong> <span className="font-mono text-xs text-gray-600">{user.user_id}</span></p>
-            <p><strong>Role:</strong> <span className="font-semibold capitalize">{user.role}</span></p>
-            <p><strong>Location:</strong> {user.city || 'N/A'}, {user.state || 'N/A'}</p>
-            <p><strong>Gender:</strong> {user.gender || 'N/A'}</p>
+      {/* Shop Info Card */}
+      <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
+        <div className="flex items-start space-x-4">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
+            <Store className="w-8 h-8" />
+          </div>
+          <div className="flex-1">
+            <h4 className="text-xl font-bold text-gray-900 mb-2">{vendor.shop_name || 'Shop Name Not Set'}</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+              <div className="flex items-center text-gray-700">
+                <User className="w-4 h-4 mr-2 text-purple-500" />
+                {vendor.name || 'Owner Unknown'}
+              </div>
+              <div className="flex items-center text-gray-700">
+                <Phone className="w-4 h-4 mr-2 text-purple-500" />
+                {vendor.phone_number || 'No phone'}
+              </div>
+              <div className="flex items-center text-gray-700">
+                <Mail className="w-4 h-4 mr-2 text-purple-500" />
+                {vendor.email || 'No email'}
+              </div>
+              <div className="flex items-center text-gray-700">
+                <MapPin className="w-4 h-4 mr-2 text-purple-500" />
+                {vendor.shop_city && vendor.shop_state 
+                  ? `${vendor.shop_city}, ${vendor.shop_state}` 
+                  : 'No location'}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Status & Verification */}
-      <div className="p-4 bg-white border rounded-lg shadow-sm">
-        <h4 className="text-lg font-bold text-gray-800 mb-3">Account Status & Dates</h4>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <p><strong>Account Status:</strong> {getStatusBadge(user.status)}</p>
-          <p>
-            <strong>Is Verified (Admin):</strong> 
-            <span className={`font-semibold ml-2 ${user.is_verified ? 'text-green-600' : 'text-red-600'}`}>
-                {user.is_verified ? <CheckCircle className="w-4 h-4 inline mr-1" /> : ''}{user.is_verified ? 'Yes' : 'No'}
-            </span>
-          </p>
-          <p className="col-span-2">
-            <strong>Last Login:</strong> 
-            <span className="ml-2 font-medium">{user.last_login_at ? new Date(user.last_login_at).toLocaleString() : 'Never'}</span>
-          </p>
-          <p className="col-span-2">
-            <strong>Created On:</strong> 
-            <span className="ml-2 font-medium">{new Date(user.created_at).toLocaleDateString()}</span>
+      {/* Shop Details */}
+      {vendor.shop_address && (
+        <div className="p-4 bg-white border rounded-lg">
+          <h5 className="font-semibold mb-2">Shop Address</h5>
+          <p className="text-sm text-gray-700">{vendor.shop_address}</p>
+        </div>
+      )}
+
+      {/* Verification Status */}
+      <div className="grid grid-cols-2 gap-4 p-4 bg-white border rounded-lg">
+        <div>
+          <p className="text-sm text-gray-600 mb-1">Verification Status</p>
+          {getVerificationBadge(vendor.verification_status)}
+        </div>
+        <div>
+          <p className="text-sm text-gray-600 mb-1">Account Status</p>
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+            vendor.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+          }`}>
+            {vendor.status || 'inactive'}
+          </span>
+        </div>
+        <div>
+          <p className="text-sm text-gray-600 mb-1">Created On</p>
+          <p className="text-sm font-medium">
+            {new Date(vendor.created_at).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })}
           </p>
         </div>
+        {vendor.verified_at && (
+          <div>
+            <p className="text-sm text-gray-600 mb-1">Verified On</p>
+            <p className="text-sm font-medium">
+              {new Date(vendor.verified_at).toLocaleDateString()}
+            </p>
+          </div>
+        )}
       </div>
-      
-      {/* Message Area and Close Button */}
-      {message && <p className={`text-sm font-medium mt-3 p-3 rounded-lg ${message.includes('Failed') ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{message}</p>}
 
+      {/* Shop Metrics */}
+      {(vendor.total_bookings > 0 || vendor.average_rating) && (
+        <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border">
+          <div className="text-center">
+            <div className="flex items-center justify-center text-blue-600 mb-1">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <p className="text-2xl font-bold">{vendor.total_bookings || 0}</p>
+            <p className="text-xs text-gray-600">Total Bookings</p>
+          </div>
+          <div className="text-center">
+            <div className="flex items-center justify-center text-yellow-600 mb-1">
+              <Star className="w-5 h-5" />
+            </div>
+            <p className="text-2xl font-bold">{vendor.average_rating || '0.0'}</p>
+            <p className="text-xs text-gray-600">Rating</p>
+          </div>
+          <div className="text-center">
+            <div className="flex items-center justify-center text-green-600 mb-1">
+              <DollarSign className="w-5 h-5" />
+            </div>
+            <p className="text-2xl font-bold">₹{Number(vendor.total_revenue || 0).toLocaleString()}</p>
+            <p className="text-xs text-gray-600">Revenue</p>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Comments */}
+      {vendor.admin_comments && (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h5 className="font-semibold mb-2 text-blue-900">Previous Admin Comments</h5>
+          <p className="text-sm text-blue-800">{vendor.admin_comments}</p>
+        </div>
+      )}
+
+      {/* Verification Actions */}
+      {vendor.verification_status === 'pending' && (
+        <div className="p-4 bg-white border rounded-lg">
+          <h5 className="font-semibold mb-3">Verification Action</h5>
+          
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Comments {vendor.verification_status === 'rejected' && <span className="text-red-500">*</span>}
+            </label>
+            <textarea
+              value={comments}
+              onChange={(e) => setComments(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              rows="3"
+              placeholder="Add your comments here..."
+            />
+          </div>
+
+          <div className="flex space-x-3">
+            <button
+              onClick={() => handleVerification('approved')}
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition font-medium"
+            >
+              {isSubmitting ? 'Processing...' : 'Approve Vendor'}
+            </button>
+            <button
+              onClick={() => handleVerification('rejected')}
+              disabled={isSubmitting || !comments.trim()}
+              className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition font-medium"
+            >
+              {isSubmitting ? 'Processing...' : 'Reject Vendor'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Message */}
+      {message && (
+        <div className={`p-3 rounded-lg text-sm font-medium ${
+          message.includes('✅') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+        }`}>
+          {message}
+        </div>
+      )}
+
+      {/* Close Button */}
       <div className="flex justify-end pt-4 border-t">
         <button
           onClick={onClose}
-          className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition shadow-sm"
+          className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition font-medium"
         >
           Close
         </button>
@@ -149,240 +236,232 @@ const UserDetailsModal = ({ user, onClose, refreshUsers }) => {
   );
 };
 
-
-// --- Main Users Page Component ---
-
-const VendorsPage = ({ token }) => {
-  const [users, setUsers] = useState([]);
+// Main Vendors Page Component
+const VendorsPage = () => {
+  const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    status: '',
+    verification_status: '',
+    city: '',
     search: '',
-    page: 1 // Assuming pagination support
+    page: 1,
+    limit: 10
   });
+  const [pagination, setPagination] = useState({});
+  const [selectedVendor, setSelectedVendor] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState(null);
 
-  // Set the token on the class instance
-  useEffect(() => {
-      if (token) {
-          apiService.setAuthToken(token);
-      }
-  }, [token]);
-
-  // Apply debounce to the search input value
   const debouncedSearch = useDebounce(filters.search, 400);
 
-  // Function to fetch users data
-  const fetchUsers = useCallback(async () => {
-    if (!token) return; 
+  const fetchVendors = useCallback(async () => {
     setLoading(true);
-
     try {
-      // Endpoint /admin/users uses 'data' array in the sample response
-      const response = await apiService.get(`/admin/vendors`, {
-        status: filters.status,
-        search: debouncedSearch,
-        page: filters.page
+      const response = await apiService.get('/admin/vendors', {
+        ...filters,
+        search: debouncedSearch
       });
-      
-      const userList = (response.data || response.users || []).map(u => ({
-        id: u.user_id, // Use user_id as the primary ID
-        ...u
-      }));
-
-      setUsers(userList);
-
+      setVendors(response.data.vendors || []);
+      setPagination(response.data.pagination || {});
     } catch (err) {
-      console.error('Failed to fetch users:', err);
-      setUsers([]); 
+      console.error('❌ Failed to fetch vendors:', err);
+      setVendors([]);
     } finally {
       setLoading(false);
     }
-  }, [token, filters.status, filters.page, debouncedSearch]);
+  }, [filters, debouncedSearch]);
 
-  // Effect to trigger fetch when filters or debounced search change
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    fetchVendors();
+  }, [fetchVendors]);
 
-  // --- Action Handlers ---
-
-  const handleViewDetails = (user) => {
-    setSelectedUser(user);
-    setIsModalOpen(true);
-  };
-
-  const openDeleteModal = (user) => {
-    setUserToDelete(user);
-    setIsDeleteModalOpen(true);
-  }
-
-  const handleDeleteUser = async () => {
-    if (!userToDelete) return;
-
+  const handleViewDetails = async (vendor) => {
     try {
-      setLoading(true);
-      setIsDeleteModalOpen(false);
-      // API call to delete (assuming endpoint /admin/vendors/{id})
-      await apiService.delete(`/admin/vendors/${userToDelete.id}`);
-      setUserToDelete(null);
-      await fetchUsers(); // Refresh the list after successful deletion
-    } catch (error) {
-      console.error('Failed to delete user:', error);
-      // Display error feedback
-      setSelectedUser({ 
-          name: userToDelete.name, 
-          error: `Failed to delete user: ${error.message || 'Check console for details.'}`
-      });
+      const response = await apiService.get(`/admin/vendors/${vendor.user_id}`);
+      setSelectedVendor(response.data);
       setIsModalOpen(true);
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      console.error('❌ Failed to fetch vendor details:', err);
     }
   };
 
-
-  // --- Table Columns Definition ---
   const columns = [
-    { header: 'ID', field: 'user_id' },
-    { header: 'Name', field: 'name' },
-    { header: 'Email', field: 'email' },
-    { header: 'Phone', field: 'phone_number' },
-    { header: 'Role', field: 'role' },
-    { header: 'City', field: 'city' },
-    {
-      header: 'Status',
+    { 
+      header: 'ID', 
+      field: 'user_id',
       render: (row) => (
-        <span className={`px-3 py-1 rounded-full text-xs font-medium uppercase ${
-          row.status === 'active' ? 'bg-green-100 text-green-800' :
+        <span className="font-mono text-xs">{row.user_id}</span>
+      )
+    },
+    {
+      header: 'Shop Name',
+      render: (row) => (
+        <div className="flex items-center space-x-2">
+          <Store className="w-5 h-5 text-purple-600" />
+          <span className="font-medium">{row.shop_name || 'Not Set'}</span>
+        </div>
+      )
+    },
+    { 
+      header: 'Owner', 
+      field: 'name',
+      render: (row) => row.name || 'Unknown'
+    },
+    { header: 'Phone', field: 'phone_number' },
+    { 
+      header: 'Location',
+      render: (row) => (
+        <span className="text-sm">{row.shop_city || 'N/A'}</span>
+      )
+    },
+    {
+      header: 'Rating',
+      render: (row) => (
+        <div className="flex items-center space-x-1">
+          <Star className="w-4 h-4 text-yellow-500" />
+          <span className="font-medium">{row.average_rating || '0.0'}</span>
+        </div>
+      )
+    },
+    {
+      header: 'Verification',
+      render: (row) => (
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+          row.verification_status === 'approved' ? 'bg-green-100 text-green-800' :
+          row.verification_status === 'rejected' ? 'bg-red-100 text-red-800' :
           'bg-yellow-100 text-yellow-800'
         }`}>
-          {row.status}
+          {row.verification_status || 'pending'}
         </span>
       )
     },
     {
       header: 'Actions',
       render: (row) => (
-        <div className="flex space-x-1">
-          <button
-            onClick={() => handleViewDetails(row)}
-            className="p-1 text-indigo-600 hover:bg-indigo-100 rounded-full transition"
-            title="View Details"
-          >
-            <Eye className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => openDeleteModal(row)}
-            className="p-1 text-red-600 hover:bg-red-100 rounded-full transition"
-            title="Delete User"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
-        </div>
+        <button
+          onClick={() => handleViewDetails(row)}
+          className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition"
+          title="View Details"
+        >
+          <Eye className="w-4 h-4" />
+        </button>
       )
     }
   ];
 
-  return (
-    <div className="p-6 md:p-10 min-h-screen bg-gray-50">
-      <div className="bg-white p-6 rounded-2xl shadow-2xl space-y-8">
-        <header>
-          <h1 className="text-3xl font-extrabold text-gray-900 border-b-2 border-indigo-100 pb-4">
-            Vendor Management
-          </h1>
-        </header>
+  // Calculate stats
+  const pendingCount = vendors.filter(v => v.verification_status === 'pending').length;
+  const approvedCount = vendors.filter(v => v.verification_status === 'approved').length;
 
-        {/* Filter and Search Bar */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-indigo-50 p-4 rounded-xl">
+  return (
+    <div className="p-6 space-y-6">
+      
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Vendor Management</h1>
+        <p className="text-gray-600 mt-1">Manage vendor accounts and approve new registrations</p>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-purple-500">
+          <p className="text-sm text-gray-600">Total Vendors</p>
+          <p className="text-2xl font-bold text-gray-900">{pagination.total || 0}</p>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-yellow-500">
+          <p className="text-sm text-gray-600">Pending Approval</p>
+          <p className="text-2xl font-bold text-yellow-600">{pendingCount}</p>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-green-500">
+          <p className="text-sm text-gray-600">Approved</p>
+          <p className="text-2xl font-bold text-green-600">{approvedCount}</p>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow-sm p-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           
-          {/* Search Input */}
-          <div className="relative w-full sm:w-80">
+          {/* Search */}
+          <div className="md:col-span-2 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Search by name, email, or phone..."
-              className="w-full pl-10 pr-4 py-2 border-2 border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-600 transition shadow-inner"
+              placeholder="Search by shop name, owner, or phone..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               value={filters.search}
-              onChange={(e) => setFilters({...filters, search: e.target.value})}
+              onChange={(e) => setFilters({...filters, search: e.target.value, page: 1})}
             />
           </div>
 
-          <div className="flex gap-3 w-full sm:w-auto">
-            {/* Status Filter (Example) */}
-            <select
-              className="flex-grow px-4 py-2 border-2 border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-600 bg-white shadow-sm transition"
-              value={filters.status}
-              onChange={(e) => setFilters({...filters, status: e.target.value, page: 1})}
-            >
-              <option value="">All Statuses</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-        </div>
+          {/* Verification Status Filter */}
+          <select
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            value={filters.verification_status}
+            onChange={(e) => setFilters({...filters, verification_status: e.target.value, page: 1})}
+          >
+            <option value="">All Verifications</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
 
-        {/* Users Table */}
-        <section className="min-h-[400px]">
-          <Table columns={columns} data={users} loading={loading} />
-          {/* TODO: Add pagination controls here */}
-        </section>
+          {/* City Filter */}
+          <input
+            type="text"
+            placeholder="Filter by city..."
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            value={filters.city}
+            onChange={(e) => setFilters({...filters, city: e.target.value, page: 1})}
+          />
+        </div>
       </div>
 
-      {/* View/Edit Modal */}
-      {selectedUser && (
+      {/* Table */}
+      <div className="bg-white rounded-lg shadow-sm">
+        <Table columns={columns} data={vendors} loading={loading} />
+        
+        {/* Pagination */}
+        {pagination.totalPages > 1 && (
+          <div className="p-4 border-t flex items-center justify-between">
+            <p className="text-sm text-gray-600">
+              Showing {((pagination.page - 1) * pagination.limit) + 1} to{' '}
+              {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
+              {pagination.total} vendors
+            </p>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setFilters({...filters, page: filters.page - 1})}
+                disabled={pagination.page === 1}
+                className="px-4 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setFilters({...filters, page: filters.page + 1})}
+                disabled={pagination.page >= pagination.totalPages}
+                className="px-4 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* View/Verify Modal */}
+      {selectedVendor && (
         <Modal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          title={`User Details: ${selectedUser.name}`}
+          title={`Vendor: ${selectedVendor.shop_name || 'Details'}`}
         >
-          {selectedUser.error ? (
-              <div className="p-4 text-red-700 bg-red-50 rounded-lg">
-                  <h4 className="font-bold">Error</h4>
-                  <p>{selectedUser.error}</p>
-              </div>
-          ) : (
-             <UserDetailsModal
-              user={selectedUser}
-              onClose={() => setIsModalOpen(false)}
-              refreshUsers={fetchUsers} 
-            />
-          )}
-         
+          <VendorDetailsModal
+            vendor={selectedVendor}
+            onClose={() => setIsModalOpen(false)}
+            onUpdate={fetchVendors}
+          />
         </Modal>
       )}
-
-      {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        title={`Confirm User Deletion`}
-      >
-        <div className="p-4 space-y-4">
-          <p className="text-gray-700">
-            Are you sure you want to <strong className="text-red-600">PERMANENTLY delete</strong> the user 
-            <span className="font-semibold"> "{userToDelete?.name}"</span>? This action cannot be undone.
-          </p>
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={() => setIsDeleteModalOpen(false)}
-              className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleDeleteUser}
-              disabled={loading}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50 flex items-center"
-            >
-              {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Delete User
-            </button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };

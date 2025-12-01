@@ -2,35 +2,46 @@ import React, { useState } from 'react';
 import Sidebar from './components/common/Sidebar';
 import Header from './components/common/Header';
 import DashboardPage from './pages/DashboardPage';
+import UsersPage from './pages/UsersPage';
 import VendorsPage from './pages/VendorsPage';
+import ShopsPage from './pages/ShopsPage';
+import ServicesPage from './pages/ServicesPage';
 import PendingApprovalsPage from './pages/PendingApprovalsPage';
-import CustomersPage from './pages/UsersPage';
 import NotificationsPage from './pages/NotificationsPage';
+import CategoriesPage from './pages/CategoriesPage';
+import BookingsPage from './pages/BookingsPage';
 
 export default function AdminDashboard() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [token] = useState('demo-token'); // Replace with actual auth token
 
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <DashboardPage token={token} />;
-      case 'vendors':
-        return <VendorsPage token={token} />;
-      case 'approvals':
-        return <PendingApprovalsPage token={token} />;
+        return <DashboardPage />;
       case 'customers':
-        return <CustomersPage token={token} />;
+        return <UsersPage />;
+      case 'vendors':
+        return <VendorsPage />;
+      case 'shops':
+        return <ShopsPage />;
+      case 'services':
+        return <ServicesPage />;
+      case 'categories':
+        return <CategoriesPage />;  
+      case 'approvals':
+        return <PendingApprovalsPage />;
+      case 'bookings':
+        return <BookingsPage />;  
       case 'notifications':
-        return <NotificationsPage token={token} />;
+        return <NotificationsPage />;
       default:
-        return <DashboardPage token={token} />;
+        return <DashboardPage />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
+    <div className="min-h-screen bg-gray-50 flex">
       <Sidebar
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
@@ -40,7 +51,9 @@ export default function AdminDashboard() {
       
       <div className="flex-1 flex flex-col min-h-screen">
         <Header setIsMobileMenuOpen={setIsMobileMenuOpen} />
-        <main className="flex-1 overflow-x-hidden">{renderPage()}</main>
+        <main className="flex-1 overflow-x-hidden overflow-y-auto">
+          {renderPage()}
+        </main>
       </div>
     </div>
   );

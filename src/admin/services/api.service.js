@@ -1,5 +1,9 @@
-// const API_BASE_URL = 'http://srv1118630.hstgr.cloud:3000/api';
-const API_BASE_URL = 'http://10.218.184.71:3001/api';
+/**
+ * API Service for Booking Management System
+ * Handles all HTTP requests with authentication and error handling
+ */
+
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3005/api';
 
 class ApiService {
   constructor() {
@@ -7,21 +11,26 @@ class ApiService {
     this.authToken = null;
   }
 
-  // Set authentication token
+  // ============================================
+  // AUTHENTICATION METHODS
+  // ============================================
+
   setAuthToken(token) {
     this.authToken = token;
+    console.log('🔐 Token set in ApiService');
   }
 
-  // Remove authentication token
   removeAuthToken() {
     this.authToken = null;
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
+    console.log('🔓 Token removed from ApiService');
   }
 
-  // Get headers
   getHeaders(customHeaders = {}) {
     const headers = {
       'Content-Type': 'application/json',
-      ...customHeaders
+      ...customHeaders,
     };
 
     if (this.authToken) {
@@ -31,110 +40,349 @@ class ApiService {
     return headers;
   }
 
-  // Generic request handler
+  // ============================================
+  // GENERIC REQUEST HANDLER
+  // ============================================
+
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
     
+    console.log('📡 API Request:', {
+      method: options.method || 'GET',
+      url,
+      hasAuth: !!this.authToken,
+    });
+
     const config = {
       ...options,
-      // Ensure headers are correctly merged and Authorization is included
-      headers: this.getHeaders(options.headers)
+      headers: this.getHeaders(options.headers),
     };
 
-    // Remove Content-Type header if body is FormData (for upload)
+    // Handle FormData (for file uploads)
     if (options.body instanceof FormData) {
-        delete config.headers['Content-Type'];
+      delete config.headers['Content-Type'];
     }
 
     try {
       const response = await fetch(url, config);
-      
+
+      console.log('✅ API Response:', response.status);
+
       // Handle 401 Unauthorized
       if (response.status === 401) {
-        // Token expired or invalid
+        console.error('❌ Unauthorized! Token expired or invalid');
         this.removeAuthToken();
-        // Clear local storage (assuming these are the keys used by your app)
-        localStorage.removeItem('admin_token');
-        localStorage.removeItem('admin_user');
-        
-        // Redirect to login page
         window.location.href = '/login';
-        
-        // Stop execution with an error
         throw new Error('Session expired. Please login again.');
       }
 
-      // Handle 204 No Content for successful DELETE/PUT where no data is returned
+      // Handle 204 No Content
       if (response.status === 204) {
-          return { success: true, message: 'Operation successful (No Content)' };
+        return { success: true };
       }
 
-      const data = await response.json();
+      // Parse JSON response
+      let responseData = null;
+      try {
+        responseData = await response.json();
+      } catch (err) {
+        console.error('❌ JSON parse error:', err);
+        throw new Error('Invalid JSON returned from server');
+      }
 
+      // Handle HTTP errors
       if (!response.ok) {
-        // Use the error message from the API response if available
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          responseData?.message || `HTTP error! Status: ${response.status}`
+        );
       }
 
-      return data;
+      return responseData;
+
     } catch (error) {
-      console.error('API Error:', error);
+      console.error('❌ API Error:', error);
+
+      if (error.message.includes('Failed to fetch')) {
+        throw new Error('Network error. Please check your connection.');
+      }
+
       throw error;
     }
   }
 
-  // GET request
+  // ============================================
+  // HTTP METHODS
+  // ============================================
+
   async get(endpoint, params = {}) {
     const queryString = new URLSearchParams(params).toString();
-    // Use URLSearchParams directly in the request method for a cleaner structure
     const url = queryString ? `${endpoint}?${queryString}` : endpoint;
-    
-    return this.request(url, {
-      method: 'GET'
-    });
+    return this.request(url, { method: 'GET' });
   }
 
-  // POST request
   async post(endpoint, data = {}) {
     return this.request(endpoint, {
       method: 'POST',
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
   }
 
-  // PUT request
   async put(endpoint, data = {}) {
     return this.request(endpoint, {
       method: 'PUT',
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
   }
 
-  // PATCH request
   async patch(endpoint, data = {}) {
     return this.request(endpoint, {
       method: 'PATCH',
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
   }
 
-  // DELETE request
   async delete(endpoint) {
-    return this.request(endpoint, {
-      method: 'DELETE'
-    });
+    return this.request(endpoint, { method: 'DELETE' });
   }
 
-  // Upload file (uses FormData, which requires omitting the 'Content-Type': 'application/json' header)
   async upload(endpoint, formData) {
-    // Note: The Content-Type header is handled within the generic request method
     return this.request(endpoint, {
       method: 'POST',
-      body: formData // Body is FormData, not stringified JSON
+      body: formData,
     });
+  }
+
+  // ============================================
+  // AUTH ENDPOINTS
+  // ============================================
+
+  async login(phone_number, password) {
+    const response = await this.post('/auth/login', { phone_number, password });
+    if (response.success && response.data.token) {
+      this.setAuthToken(response.data.token);
+    }
+    return response;
+  }
+
+  async register(userData) {
+    return this.post('/auth/register', userData);
+  }
+
+  async getProfile() {
+    return this.get('/auth/profile');
+  }
+
+  async updateProfile(profileData) {
+    return this.put('/auth/profile', profileData);
+  }
+
+  // ============================================
+  // ADMIN - DASHBOARD
+  // ============================================
+
+  async getDashboardStats() {
+    return this.get('/admin/dashboard/stats');
+  }
+
+  // ============================================
+  // ADMIN - USER MANAGEMENT
+  // ============================================
+
+  async getAllUsers(filters = {}) {
+    return this.get('/admin/users', filters);
+  }
+
+  async getUserById(userId) {
+    return this.get(`/admin/users/${userId}`);
+  }
+
+  async createAdmin(adminData) {
+    return this.post('/admin/users/admin', adminData);
+  }
+
+  async updateUserStatus(userId, status) {
+    return this.put(`/admin/users/${userId}/status`, { status });
+  }
+
+  async deleteUser(userId) {
+    return this.delete(`/admin/users/${userId}`);
+  }
+
+  // ============================================
+  // ADMIN - VENDOR MANAGEMENT
+  // ============================================
+
+  async getAllVendors(filters = {}) {
+    return this.get('/admin/vendors', filters);
+  }
+
+  async getVendorById(vendorId) {
+    return this.get(`/admin/vendors/${vendorId}`);
+  }
+
+  async updateVendorVerification(vendorId, verificationData) {
+    return this.put(`/admin/vendors/${vendorId}/verification`, verificationData);
+  }
+
+  async updateDocumentVerification(documentId, verificationData) {
+    return this.put(`/admin/documents/${documentId}/verification`, verificationData);
+  }
+
+  // ============================================
+  // ADMIN - SHOP MANAGEMENT
+  // ============================================
+
+  async getAllShops(filters = {}) {
+    return this.get('/admin/shops', filters);
+  }
+
+  async getShopById(shopId) {
+    return this.get(`/admin/shops/${shopId}`);
+  }
+
+  async createShop(shopData) {
+    return this.post('/admin/shops', shopData);
+  }
+
+  async updateShop(shopId, shopData) {
+    return this.put(`/admin/shops/${shopId}`, shopData);
+  }
+
+  async deleteShop(shopId) {
+    return this.delete(`/admin/shops/${shopId}`);
+  }
+
+  async updateShopVerification(shopId, verificationData) {
+    return this.put(`/admin/shops/${shopId}/verification`, verificationData);
+  }
+
+  async updateVendorShopDetails(userId, shopData) {
+    // Update vendor's shop details through vendor endpoint
+    return this.put(`/admin/vendors/${userId}/shop`, shopData);
+  }
+
+  async createVendorWithShop(vendorData) {
+    // Create vendor with shop details
+    return this.post('/admin/vendors', vendorData);
+  }
+
+  // ============================================
+  // SHOP IMAGES MANAGEMENT
+  // ============================================
+
+  async uploadShopProfileImage(userId, imageFile) {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+    formData.append('type', 'profile');
+    return this.request(`/admin/vendors/${userId}/shop/profile-image`, {
+      method: 'PUT',
+      body: formData,
+    });
+  }
+
+  async uploadShopGalleryImages(userId, imageFiles) {
+    const formData = new FormData();
+    imageFiles.forEach(file => {
+      formData.append('images', file);
+    });
+    return this.request(`/admin/vendors/${userId}/shop/gallery-images`, {
+      method: 'POST',
+      body: formData,
+    });
+  }
+
+  async deleteShopImage(userId, imageId, imageType) {
+    return this.delete(`/admin/vendors/${userId}/shop/images/${imageId}?type=${imageType}`);
+  }
+
+  async setShopPrimaryImage(userId, imageId) {
+    return this.put(`/admin/vendors/${userId}/shop/images/${imageId}/primary`, {});
+  }
+
+  // ============================================
+  // VENDOR DOCUMENTS MANAGEMENT
+  // ============================================
+
+  async getVendorDocuments(vendorId) {
+    return this.get(`/admin/vendors/${vendorId}/documents`);
+  }
+
+  async uploadVendorDocument(vendorId, documentFile, documentType) {
+    const formData = new FormData();
+    formData.append('document', documentFile);
+    formData.append('document_type', documentType);
+    return this.upload(`/admin/vendors/${vendorId}/documents`, formData);
+  }
+
+  async updateDocumentVerification(documentId, verificationData) {
+    return this.put(`/admin/documents/${documentId}/verification`, verificationData);
+  }
+
+  async deleteVendorDocument(documentId) {
+    return this.delete(`/admin/documents/${documentId}`);
+  }
+
+  async approveAllDocuments(vendorId, adminComments) {
+    return this.put(`/admin/vendors/${vendorId}/documents/approve-all`, {
+      admin_comments: adminComments
+    });
+  }
+
+  // ============================================
+  // ADMIN - SERVICE MANAGEMENT
+  // ============================================
+
+  async getAllServices(filters = {}) {
+    return this.get('/admin/services', filters);
+  }
+
+  async getServiceById(serviceId) {
+    return this.get(`/admin/services/${serviceId}`);
+  }
+
+  async createService(serviceData) {
+    return this.post('/admin/services', serviceData);
+  }
+
+  async updateService(serviceId, serviceData) {
+    return this.put(`/admin/services/${serviceId}`, serviceData);
+  }
+
+  async deleteService(serviceId) {
+    return this.delete(`/admin/services/${serviceId}`);
+  }
+
+  async toggleServiceAvailability(serviceId, isAvailable) {
+    return this.put(`/admin/services/${serviceId}/availability`, { is_available: isAvailable });
+  }
+
+  // ============================================
+  // ADMIN - CATEGORY MANAGEMENT
+  // ============================================
+
+  async getAllCategories(filters = {}) {
+    return this.get('/admin/categories', filters);
+  }
+
+  async getCategoryById(categoryId) {
+    return this.get(`/admin/categories/${categoryId}`);
+  }
+
+  async createCategory(categoryData) {
+    return this.post('/admin/categories', categoryData);
+  }
+
+  async updateCategory(categoryId, categoryData) {
+    return this.put(`/admin/categories/${categoryId}`, categoryData);
+  }
+
+  async deleteCategory(categoryId) {
+    return this.delete(`/admin/categories/${categoryId}`);
   }
 }
 
 
+
+// Create and export singleton instance
 export const apiService = new ApiService();
 export default apiService;
