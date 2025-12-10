@@ -80,7 +80,7 @@ const CreateBookingForm = ({ onSubmit, onCancel, isSubmitting }) => {
     const loadCustomers = async () => {
       setLoading(prev => ({ ...prev, customers: true }));
       try {
-        const response = await apiService.getAllUsers({ role: 'customer', limit: 1000 });
+        const response = await apiService.getAllUsers({ limit: 1000 });
         console.log('👥 Customers API response:', response);
         
         // Handle multiple possible response structures
@@ -98,7 +98,7 @@ const CreateBookingForm = ({ onSubmit, onCancel, isSubmitting }) => {
         console.log('👥 Parsed users:', users);
         
         // Filter for customers only
-        const customerList = users.filter(u => u.role === 'customer' || u.role === 'CUSTOMER');
+        const customerList = users.filter(u => u.user_type === 'customer' || u.user_type === 'CUSTOMER');
         console.log('👥 Filtered customers:', customerList);
         
         setCustomers(customerList);

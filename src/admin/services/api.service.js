@@ -379,6 +379,34 @@ class ApiService {
   async deleteCategory(categoryId) {
     return this.delete(`/admin/categories/${categoryId}`);
   }
+
+  // ============================================
+  // ADMIN - BOOKING MANAGEMENT (ADDED)
+  // ============================================
+
+  async getAllBookings(filters = {}) {
+    return this.get('/admin/bookings', filters);
+  }
+
+  async getBookingById(bookingId) {
+    return this.get(`/admin/bookings/${bookingId}`);
+  }
+
+  async createBooking(bookingData) {
+    return this.post('/admin/bookings', bookingData);
+  }
+
+  async updateBookingStatus(bookingId, statusData) {
+    return this.put(`/admin/bookings/${bookingId}/status`, statusData);
+  }
+
+  async cancelBooking(bookingId, cancellationData) {
+    return this.put(`/admin/bookings/${bookingId}/cancel`, cancellationData);
+  }
+
+  async getVendorServicesForBooking(vendorId) {
+    return this.get(`/admin/vendors/${vendorId}/services`);
+  }
 }
 
 

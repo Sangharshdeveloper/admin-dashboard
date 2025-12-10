@@ -34,7 +34,7 @@ const VendorDetailsModal = ({ vendor, onClose, onUpdate }) => {
 
     try {
       await apiService.put(`/admin/vendors/${vendor.user_id}/verification`, {
-        verification_status: status,
+        status: status,
         admin_comments: comments
       });
       setMessage(`✅ Vendor ${status === 'approved' ? 'approved' : 'rejected'} successfully`);
@@ -112,7 +112,7 @@ const VendorDetailsModal = ({ vendor, onClose, onUpdate }) => {
       <div className="grid grid-cols-2 gap-4 p-4 bg-white border rounded-lg">
         <div>
           <p className="text-sm text-gray-600 mb-1">Verification Status</p>
-          {getVerificationBadge(vendor.verification_status)}
+          {getVerificationBadge(vendor.status)}
         </div>
         <div>
           <p className="text-sm text-gray-600 mb-1">Account Status</p>
@@ -178,13 +178,13 @@ const VendorDetailsModal = ({ vendor, onClose, onUpdate }) => {
       )}
 
       {/* Verification Actions */}
-      {vendor.verification_status === 'pending' && (
+      {vendor.status === 'pending' && (
         <div className="p-4 bg-white border rounded-lg">
           <h5 className="font-semibold mb-3">Verification Action</h5>
           
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Comments {vendor.verification_status === 'rejected' && <span className="text-red-500">*</span>}
+              Comments {vendor.status === 'rejected' && <span className="text-red-500">*</span>}
             </label>
             <textarea
               value={comments}
@@ -241,7 +241,7 @@ const VendorsPage = () => {
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    verification_status: '',
+    status: '',
     city: '',
     search: '',
     page: 1,
@@ -326,11 +326,11 @@ const VendorsPage = () => {
       header: 'Verification',
       render: (row) => (
         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-          row.verification_status === 'approved' ? 'bg-green-100 text-green-800' :
-          row.verification_status === 'rejected' ? 'bg-red-100 text-red-800' :
+          row.status === 'approved' ? 'bg-green-100 text-green-800' :
+          row.status === 'rejected' ? 'bg-red-100 text-red-800' :
           'bg-yellow-100 text-yellow-800'
         }`}>
-          {row.verification_status || 'pending'}
+          {row.status || 'pending'}
         </span>
       )
     },
@@ -349,8 +349,8 @@ const VendorsPage = () => {
   ];
 
   // Calculate stats
-  const pendingCount = vendors.filter(v => v.verification_status === 'pending').length;
-  const approvedCount = vendors.filter(v => v.verification_status === 'approved').length;
+  const pendingCount = vendors.filter(v => v.status === 'pending').length;
+  const approvedCount = vendors.filter(v => v.status === 'approved').length;
 
   return (
     <div className="p-6 space-y-6">
@@ -396,8 +396,8 @@ const VendorsPage = () => {
           {/* Verification Status Filter */}
           <select
             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            value={filters.verification_status}
-            onChange={(e) => setFilters({...filters, verification_status: e.target.value, page: 1})}
+            value={filters.status}
+            onChange={(e) => setFilters({...filters, status: e.target.value, page: 1})}
           >
             <option value="">All Verifications</option>
             <option value="pending">Pending</option>
