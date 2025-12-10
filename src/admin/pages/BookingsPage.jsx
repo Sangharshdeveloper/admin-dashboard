@@ -161,7 +161,7 @@ const CreateBookingForm = ({ onSubmit, onCancel, isSubmitting }) => {
 
       setLoading(prev => ({ ...prev, services: true }));
       try {
-        const response = await apiService.getVendorServices(formData.vendor_id);
+        const response = await apiService.getVendorServicesForBooking(formData.vendor_id);
         console.log('🔧 Services API response:', response);
         
         // Handle multiple possible response structures
