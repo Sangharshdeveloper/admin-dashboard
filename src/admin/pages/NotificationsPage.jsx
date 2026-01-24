@@ -11,7 +11,7 @@ const NotificationsPage = ({ token }) => {
 
   const handleSend = async () => {
     try {
-      await apiService.post('/send-notification', notification);
+      await apiService.post('/admin/send-notification', notification);
       alert('Notification sent successfully!');
       setNotification({ title: '', message: '', recipient_type: 'all_users', recipient_id: '' });
     } catch (err) {

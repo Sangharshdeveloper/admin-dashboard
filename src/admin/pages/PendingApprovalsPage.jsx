@@ -16,19 +16,25 @@ const PendingApprovalsPage = () => {
     fetchPendingVendors();
   }, []);
 
-  const fetchPendingVendors = async () => {
-    try {
-      setLoading(true);
-      const response = await apiService.get('/admin/vendors', {
-        verification_status: 'pending'
-      });
-      setPendingVendors(response.data.vendors || []);
-    } catch (err) {
-      console.error('❌ Failed to fetch pending vendors:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+const fetchPendingVendors = async () => {
+  try {
+    setLoading(true);
+    const response = await apiService.get('/admin/vendors', {
+      params: {
+        page: 1,
+        limit: 100,
+        status: 'rejected',
+        city: '',
+        search: ''
+      }
+    });
+    setPendingVendors(response.data.vendors || []);
+  } catch (err) {
+    console.error('❌ Failed to fetch pending vendors:', err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleAction = async () => {
     if (actionType === 'reject' && !comments.trim()) {
@@ -38,18 +44,26 @@ const PendingApprovalsPage = () => {
 
     setIsSubmitting(true);
     try {
-      await apiService.put(`/admin/vendors/${selectedVendor.user_id}/verification`, {
+      const response = await apiService.put(`/admin/vendors/${selectedVendor.user_id}/verification`, {
         verification_status: actionType === 'approve' ? 'approved' : 'rejected',
         admin_comments: comments
       });
 
-      setPendingVendors(pendingVendors.filter(v => v.user_id !== selectedVendor.user_id));
-      setModalOpen(false);
-      setComments('');
-      setSelectedVendor(null);
+      if (response.data.success) {
+        await fetchPendingVendors();
+        
+        setModalOpen(false);
+        setComments('');
+        setSelectedVendor(null);
+        setActionType(null);
+        
+        alert(`Vendor ${actionType === 'approve' ? 'approved' : 'rejected'} successfully!`);
+      } else {
+        throw new Error(response.data.message || 'Action failed');
+      }
     } catch (err) {
       console.error('❌ Verification error:', err);
-      alert(`Failed: ${err.message}`);
+      alert(`Failed: ${err.response?.data?.message || err.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -75,7 +89,6 @@ const PendingApprovalsPage = () => {
   return (
     <div className="p-6 space-y-6">
       
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Pending Vendor Approvals</h1>
@@ -89,7 +102,6 @@ const PendingApprovalsPage = () => {
         </div>
       </div>
 
-      {/* Pending Vendors List */}
       {pendingVendors.length === 0 ? (
         <div className="bg-white rounded-lg shadow-sm p-12 text-center">
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
@@ -103,7 +115,6 @@ const PendingApprovalsPage = () => {
               <div className="p-6">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                   
-                  {/* Vendor Info */}
                   <div className="flex-1">
                     <div className="flex items-start space-x-4">
                       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-white flex-shrink-0">
@@ -147,7 +158,6 @@ const PendingApprovalsPage = () => {
                     </div>
                   </div>
                   
-                  {/* Actions */}
                   <div className="flex lg:flex-col gap-3 lg:items-end">
                     <button
                       onClick={() => openModal(vendor, 'approve')}
@@ -171,25 +181,24 @@ const PendingApprovalsPage = () => {
         </div>
       )}
 
-      {/* Approval/Rejection Modal */}
       {selectedVendor && (
         <Modal
           isOpen={modalOpen}
           onClose={() => {
             setModalOpen(false);
             setComments('');
+            setSelectedVendor(null);
+            setActionType(null);
           }}
           title={`${actionType === 'approve' ? 'Approve' : 'Reject'} Vendor`}
         >
           <div className="space-y-4">
             
-            {/* Vendor Summary */}
             <div className="p-4 bg-gray-50 rounded-lg">
               <p className="font-semibold text-gray-900">{selectedVendor.shop_name}</p>
               <p className="text-sm text-gray-600">Owner: {selectedVendor.name}</p>
             </div>
 
-            {/* Comments */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 {actionType === 'approve' ? 'Comments (Optional)' : 'Rejection Reason (Required)'}
@@ -206,12 +215,13 @@ const PendingApprovalsPage = () => {
               />
             </div>
             
-            {/* Action Buttons */}
             <div className="flex gap-3 justify-end pt-4 border-t">
               <button
                 onClick={() => {
                   setModalOpen(false);
                   setComments('');
+                  setSelectedVendor(null);
+                  setActionType(null);
                 }}
                 disabled={isSubmitting}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
