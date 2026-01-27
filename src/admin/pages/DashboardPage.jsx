@@ -67,8 +67,8 @@ const DashboardPage = ({ token }) => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard Overview 1</h1>
-          <p className="text-gray-600 mt-1">Welcome back! Here's what's happening today.</p>
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard Overview 1111</h1>
+          <p className="text-gray-600 mt-1">Welcome back! Here's what's happening today 111.</p>
         </div>
         <div className="flex items-center space-x-2 text-sm text-gray-600">
           <Clock className="w-4 h-4" />
