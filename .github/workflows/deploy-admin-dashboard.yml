@@ -20,7 +20,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /var/www/admin-dashboard
+            cd /var/www/admin-dashboard/admin-dashboard
             git pull origin master
             npm install
             npm run build
