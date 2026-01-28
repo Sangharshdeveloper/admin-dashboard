@@ -24,3 +24,5 @@ jobs:
             git pull origin master
             npm install
             npm run build
+            rm -rf /var/www/html/*
+            rsync -av --delete build/ /var/www/html/
