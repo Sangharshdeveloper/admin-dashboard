@@ -3,15 +3,14 @@ name: Deploy Admin Dashboard
 on:
   push:
     branches:
-      - master   
-#1
+      - master
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
@@ -20,9 +19,22 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            set -e
+
             cd /var/www/admin-dashboard/admin-dashboard
+
+            echo "Pulling latest code..."
             git pull origin master
-            npm install
+
+            echo "Installing deps..."
+            npm ci
+
+            echo "Building app..."
             npm run build
+
+            echo "Deploying build..."
             rm -rf /var/www/html/*
-            rsync -av --delete build/ /var/www/html/
+            rsync -av build/ /var/www/html/
+
+            echo "Reloading nginx..."
+            sudo systemctl reload nginx
